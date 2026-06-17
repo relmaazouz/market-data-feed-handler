@@ -152,7 +152,7 @@ namespace itch {
             case 'R': {
                 StockDirectory r;
                 r.stock_locate = load_be16(m+1);
-                r.tracking_number = load_be32(m+3);
+                r.tracking_number = load_be16(m+3);
                 r.timestamp = load_be48(m+5);
                 std::memcpy(r.stock.data(),m+11,8);
 
@@ -163,7 +163,7 @@ namespace itch {
             case 'A': case 'F': {
                 AddOrder a;
                 a.stock_locate = load_be16(m+1);
-                a.tracking_number = load_be32(m+3);
+                a.tracking_number = load_be16(m+3);
                 a.timestamp = load_be48(m+5);
                 a.order_ref = load_be64(m+11);
                 a.side = (char)m[19];
@@ -172,6 +172,7 @@ namespace itch {
                 a.price = load_be32(m+32);
                 a.attributed = (m[0] == 'F');
                 h.on_add_order(a);
+                 break;
             }
 
             case 'E': { 
@@ -182,7 +183,7 @@ namespace itch {
                 e.order_ref=load_be64(m+11); 
                 e.executed_shares=load_be32(m+19);
                 e.match_number=load_be64(m+23); 
-                h.on_order_executed(e); break;
+                h.on_order_executed(e);break;
             }
 
             case 'C': { 
@@ -205,7 +206,8 @@ namespace itch {
                 x.timestamp=load_be48(m+5); 
                 x.order_ref=load_be64(m+11); 
                 x.cancelled_shares=load_be32(m+19);
-                h.on_order_cancel(x); break; 
+                h.on_order_cancel(x); 
+                break; 
             }
 
             case 'D': { 
