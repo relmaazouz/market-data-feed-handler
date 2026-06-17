@@ -1,0 +1,11 @@
+# Market-data files are large (a full BX day exceeds GitHub's 100 MB limit) and
+# should never be committed. Fetch them with data/download.sh instead.
+data/*.gz
+data/*.bin
+data/*_ITCH_50
+data/*.NASDAQ_ITCH50
+
+# Build artifacts
+build/
+itch_feed
+*.o
