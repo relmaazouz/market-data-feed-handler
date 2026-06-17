@@ -126,10 +126,11 @@ namespace itch {
         void on_add_order(const AddOrder&){}
         void on_order_executed(const OrderExecuted&){}
         void on_order_executed_price(const OrderExecutedPrice&){}
-        void on_order_canceled(const OrderCancel&){}
+        void on_order_cancel(const OrderCancel&){}
         void on_order_delete(const OrderDelete&){}
         void on_order_replace(const OrderReplace&){}
         void on_trade(const Trade&){}
+        void on_other(char, const uint8_t*, uint16_t){}
     };
 
 
