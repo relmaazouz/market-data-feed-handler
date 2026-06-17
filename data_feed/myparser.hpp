@@ -121,15 +121,15 @@ namespace itch {
 
 
     struct NullHandler {
-        void on_system_event(const SystemEvent& );
-        void on_stock_directory(const StockDirectory&);
-        void on_add_order(const AddOrder&);
-        void on_order_executed(const OrderExecuted&);
-        void on_order_executed_price(const OrderExecutedPrice&);
-        void on_order_canceled(const OrderCancel&);
-        void on_order_delete(const OrderDelete&);
-        void on_order_replace(const OrderReplace&);
-        void on_trade(const Trade&);
+        void on_system_event(const SystemEvent& ){}
+        void on_stock_directory(const StockDirectory&){}
+        void on_add_order(const AddOrder&){}
+        void on_order_executed(const OrderExecuted&){}
+        void on_order_executed_price(const OrderExecutedPrice&){}
+        void on_order_canceled(const OrderCancel&){}
+        void on_order_delete(const OrderDelete&){}
+        void on_order_replace(const OrderReplace&){}
+        void on_trade(const Trade&){}
     };
 
 
