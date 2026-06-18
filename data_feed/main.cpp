@@ -10,7 +10,8 @@
 #include<cstdint>
 #include<array>
 
-#include "myparser.hpp"
+#include "parser.hpp"
+#include "order_book.hpp"
 
 using namespace itch;
 
@@ -78,39 +79,44 @@ int main(int argc, char** argv) {
     if(addr == MAP_FAILED) {std::perror("mmap"); ::close(fd); return 1;}
     ::madvise(addr, size, MADV_SEQUENTIAL);
 
-    StatsHandler h;
-    MyParser<StatsHandler> myParser(h);
+    // StatsHandler h;
+    // Parser<StatsHandler> parser(h);
+
+    OrderBook book;
+    Parser<OrderBook> parser(book);
+
 
     const auto t0 = std::chrono::steady_clock::now();
-    const std::size_t n = myParser.parse(static_cast<const uint8_t*>(addr), size);
+    const std::size_t n = parser.parse(static_cast<const uint8_t*>(addr), size);
+    std::printf("peak orders: %zu   final orders: %zu\n", book.peak, book.orders.size());
     const auto t1 = std::chrono::steady_clock::now();
 
     const double secs = std::chrono::duration<double>(t1-t0).count();
 
     std::printf("\nparsed %zu messages from %.1f MB in %.3f s  (%.2f M msg/s)\n",
             n, size / 1e6, secs, secs > 0 ? n / secs / 1e6 : 0.0);
-    std::printf("symbols seen: %zu\n\nmessage counts:\n", h.symbol_by_locate.size());
+    // std::printf("symbols seen: %zu\n\nmessage counts:\n", book.symbol_by_locate.size());
 
-    struct Row { char key; const char* name; };
+    // struct Row { char key; const char* name; };
 
-    static const Row rows[] = {
-        {'S',"system-event"},
-        {'R',"stock-directory"},
-        {'A',"add-order"},
-        {'F',"add-order-mpid"},
-        {'E',"executed"},
-        {'C',"executed-w-price"},
-        {'X',"cancel"},{'D',"delete"},
-        {'U',"replace"},
-        {'P',"trade"},
-        {'Q',"cross-trade"},
-        {'B',"broken-trade"},
-    };
+    // static const Row rows[] = {
+    //     {'S',"system-event"},
+    //     {'R',"stock-directory"},
+    //     {'A',"add-order"},
+    //     {'F',"add-order-mpid"},
+    //     {'E',"executed"},
+    //     {'C',"executed-w-price"},
+    //     {'X',"cancel"},{'D',"delete"},
+    //     {'U',"replace"},
+    //     {'P',"trade"},
+    //     {'Q',"cross-trade"},
+    //     {'B',"broken-trade"},
+    // };
 
-    for (const auto& r : rows) {
-        uint64_t c = h.counts[static_cast<unsigned char>(r.key) & 0x7f];
-        if (c) std::printf("  %-18s %12llu\n", r.name, (unsigned long long)c);
-    }
+    // for (const auto& r : rows) {
+    //     uint64_t c = h.counts[static_cast<unsigned char>(r.key) & 0x7f];
+    //     if (c) std::printf("  %-18s %12llu\n", r.name, (unsigned long long)c);
+    // }
 
     ::munmap(addr, size);
     ::close(fd);

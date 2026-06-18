@@ -258,12 +258,12 @@ namespace itch {
 
 
     template <class Handler>
-    class MyParser{
+    class Parser{
         private:
             Handler& h_;
 
         public:
-            explicit MyParser(Handler& h) : h_(h){}
+            explicit Parser(Handler& h) : h_(h){}
 
 
             std::size_t parse(const uint8_t* data, std::size_t size) {
