@@ -15,5 +15,7 @@ cd "$(dirname "$0")"
 echo "downloading ${URL}"
 curl -fL -o "${FILE}" "${URL}"
 echo "decompressing ${FILE}"
-gunzip -k "${FILE}"
+gunzip -f "${FILE}"
+rm "${FILE}"
+mv "${DATE}.BX_ITCH_50" data/
 echo "ready: data/${DATE}.BX_ITCH_50"
