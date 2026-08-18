@@ -7,6 +7,9 @@
 
 #include "parser.hpp"
 
+#include "../third_party/ankerl/unordered_dense.h"
+
+
 namespace itch {
 
     struct OrderInfo {
@@ -29,7 +32,8 @@ namespace itch {
 
         OrderBook() { orders.reserve(100000); }   // size past peak (~73k) once; avoid rehashing
 
-        std::unordered_map<uint64_t, OrderInfo> orders;
+        // std::unordered_map<uint64_t, OrderInfo> orders;
+        ankerl::unordered_dense::map<uint64_t, OrderInfo> orders;
         std::size_t peak = 0;
 
         struct Level {
