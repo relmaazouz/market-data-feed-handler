@@ -9,3 +9,5 @@ data/*.NASDAQ_ITCH50
 build/
 itch_feed
 *.o
+
+output/*
