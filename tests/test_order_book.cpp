@@ -1,3 +1,4 @@
+#include <cstdio>
 #include "itch/parser.hpp"
 #include "itch/order_book.hpp"
 #include <cstdint>
