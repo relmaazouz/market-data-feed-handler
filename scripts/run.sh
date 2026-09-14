@@ -58,12 +58,12 @@ if [[ "$USE_JEMALLOC" -eq 1 ]]; then
 fi
 
 echo "allocator : $([[ -n "$PRELOAD" ]] && echo "jemalloc  ($PRELOAD)" || echo "system (default)")"
-echo "binary    : ./$BIN"
+echo "binary    : ./output/$BIN"
 echo "data      : $DATA"
 echo "---"
 
 if [[ -n "$PRELOAD" ]]; then
-    LD_PRELOAD="$PRELOAD" "./$BIN" "$DATA"
+    LD_PRELOAD="$PRELOAD" "./output/$BIN" "$DATA"
 else
-    "./$BIN" "$DATA"
+    "./output/$BIN" "$DATA"
 fi
