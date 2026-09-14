@@ -7,7 +7,7 @@
 
 #include "parser.hpp"
 
-#include "../third_party/ankerl/unordered_dense.h"
+#include <ankerl/unordered_dense.h>
 
 
 namespace itch {

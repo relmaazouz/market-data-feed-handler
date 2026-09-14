@@ -1,5 +1,5 @@
-#include "parser.hpp"
-#include "order_book.hpp"
+#include "itch/parser.hpp"
+#include "itch/order_book.hpp"
 #include <cstdint>
 
 static int g_checks = 0, g_failures = 0;
@@ -25,12 +25,8 @@ static uint64_t level_shares(OrderBook& b, uint16_t loc, char side, uint32_t pri
     return 0;
 }
 
-static std::size_t level_count(OrderBook& b, uint16_t loc, char side, uint32_t price){
-    const auto& v = (side == 'B') ? b.books[loc].bids : b.books[loc].asks;
-    for(const auto& lv: v) {
-        if (lv.price == price) return lv.shares;
-    }
-    return 0;
+static std::size_t level_count(OrderBook& b, uint16_t loc, char side){
+    return (side == 'B') ? b.books[loc].bids.size() : b.books[loc].asks.size();
 }
 
 static bool has_order(OrderBook& b, uint64_t ref ){
@@ -66,7 +62,7 @@ static itch::OrderExecutedPrice mk_exec_px(uint64_t ref, uint32_t sh){
     return m;
 }
 
-static itch::OrderCancel mk_cancel(uint64_t ref, uint64_t sh){
+static itch::OrderCancel mk_cancel(uint64_t ref, uint32_t sh){
     itch::OrderCancel m{};
     m.order_ref = ref;
     m.cancelled_shares = sh;
@@ -127,7 +123,7 @@ static void test_full_execution(){
     b.on_add_order(mk_add(1,100,'B',500,101));
     b.on_order_executed(mk_exec(100,500));
     CHECK(!has_order(b, 100));
-    CHECK(level_count(b,1,'B',101)==0);
+    CHECK(level_count(b,1,'B')==0);
 }
 
 static void test_execute_with_price() {             // the 'C' message (zombie-bug guard)
@@ -135,7 +131,7 @@ static void test_execute_with_price() {             // the 'C' message (zombie-b
     b.on_add_order(mk_add(1, 1, 'S', 500, 200));
     b.on_order_executed_price(mk_exec_px(1, 500));
     CHECK(!has_order(b, 1));
-    CHECK(level_count(b, 1, 'S',200) == 0);
+    CHECK(level_count(b, 1, 'S') == 0);
 }
 
 static void test_cancel() {
@@ -151,7 +147,7 @@ static void test_delete() {
     b.on_add_order(mk_add(1, 100, 'B', 500, 101));
     b.on_order_delete(mk_delete(100));
     CHECK(!has_order(b, 100));
-    CHECK(level_count(b, 1, 'B',101) == 0);             // full remaining shares removed
+    CHECK(level_count(b, 1, 'B') == 0);             // full remaining shares removed
 }
 
 static void test_replace() {
@@ -195,6 +191,9 @@ int main() {
     test_full_execution();
     test_execute_with_price();
     test_symbol_lookup();
-
+    
+    if(g_failures==0){
+        printf("All tests passed!\n");
+    }
     return g_failures == 0 ? 0:1 ;
 }
