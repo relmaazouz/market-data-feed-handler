@@ -10,8 +10,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <itch/itch.hpp>
+#include <cerrno>
 
-int main(int argc, char** argv) {
+int main() {
+    std::printf("Started listening");
     int sock = ::socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) { std::perror("socket"); return 1; }
 
@@ -36,14 +38,36 @@ int main(int argc, char** argv) {
     }
 
 
+    timeval tv{2, 0};   // stop after 2s of silence (end of feed)
+    if (::setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+        std::perror("SO_RCVTIMEO"); return 1;
+    }
+
+    std::printf("listening on 239.1.1.1:12345\n");
+    std::fflush(stdout);
+
+
+
+
     uint8_t buf[2048];
+    itch::OrderBook book;
     std::size_t count = 0;
+    
     while (true) {
         const ssize_t n = ::recvfrom(sock, buf, sizeof(buf), 0, nullptr, nullptr);
+
+        if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+
         if (n < 0) { std::perror("recvfrom"); break; }
-        std::printf("recv %zd bytes  (msg type '%c')\n", n, static_cast<char>(buf[2]));
-        if (++count >= 20) break;    // cap for the first test
+        
+        const uint16_t len = itch::load_be16(buf);
+        itch::dispatch(book,buf + 2, len);
+        
+        if (++count >= 10000) break;    // cap for the first test
     }
+
+    std::printf("received %zu messages | peak %zu  final orders %zu\n",
+                count, book.peak, book.orders.size());
     ::close(sock);
 
 
