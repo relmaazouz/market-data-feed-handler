@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
 
         pos += 2+static_cast<std::size_t>(len);
 
-        if (++count >= 1000) break;   // cap for the first tcpdump test; remove later
+        if (++count >= 5000000) break;   // 5M: builds a big real book, completes without stalling forever
 
     }
 

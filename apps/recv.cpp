@@ -55,15 +55,18 @@ int main() {
     
     while (true) {
         const ssize_t n = ::recvfrom(sock, buf, sizeof(buf), 0, nullptr, nullptr);
-
-        if (errno == EAGAIN || errno == EWOULDBLOCK) break;
-
-        if (n < 0) { std::perror("recvfrom"); break; }
+        if (n < 0) { 
+            if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+            std::perror("recvfrom"); 
+            break;
+            
+        }
         
         const uint16_t len = itch::load_be16(buf);
         itch::dispatch(book,buf + 2, len);
         
-        if (++count >= 10000) break;    // cap for the first test
+        //if (++count >= 10000) break;    // cap for the first test
+        ++count;
     }
 
     std::printf("received %zu messages | peak %zu  final orders %zu\n",
