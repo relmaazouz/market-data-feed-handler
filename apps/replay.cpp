@@ -1,3 +1,4 @@
+#include <cstring>
 #include <cstdio>
 #include <cstdint>
 #include <cstddef>
@@ -57,6 +58,9 @@ int main(int argc, char** argv) {
 
 
     std::size_t pos = 0, count = 0;
+    uint64_t seq = 1;                                   // 1-based sequence of the first message
+    uint8_t  packet[20 + 2 + 65535];                    // MoldUDP header + one framed ITCH message
+    const char session[10] = {'B','X','0','0','0','0','0','0','0','0'};   // fixed placeholder for v1
 
     while(pos + 2 <size){
         
@@ -64,7 +68,12 @@ int main(int argc, char** argv) {
 
         if (len ==0 || pos+2+len > size){break;}
 
-        const ssize_t sent = ::sendto(sock, data+ pos, 2 + len,0,reinterpret_cast<sockaddr*>(&group), sizeof(group));
+        std::memcpy(packet,      session,      10);          // [0..9]   session
+        itch::store_be64(packet + 10, seq);                  // [10..17] sequence number (be64)
+        itch::store_be16(packet + 18, 1);                    // [18..19] message count = 1
+        std::memcpy(packet + 20, data + pos, 2 + len);       // [20..]   the [len][body] message, verbatim
+
+        const ssize_t sent = ::sendto(sock, packet, 20u + 2u + len, 0, reinterpret_cast<sockaddr*>(&group), sizeof(group));
 
         if(sent < 0){
             std::perror("sendto");
@@ -72,8 +81,10 @@ int main(int argc, char** argv) {
         }
 
         pos += 2+static_cast<std::size_t>(len);
+        ++count;
+        ++seq;   
 
-        if (++count >= 5000000) break;   // 5M: builds a big real book, completes without stalling forever
+        if (count >= 5000000) break;   // 5M: builds a big real book, completes without stalling forever
 
     }
 

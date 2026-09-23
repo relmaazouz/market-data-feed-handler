@@ -21,11 +21,28 @@ namespace itch {
                (uint64_t(p[2]) << 24) | (uint64_t(p[3]) << 16) |
                (uint64_t(p[4]) <<  8) |  uint64_t(p[5]);
     }
+
     inline uint64_t load_be64(const uint8_t* p) noexcept {
         return (uint64_t(p[0]) << 56) | (uint64_t(p[1]) << 48) |
                (uint64_t(p[2]) << 40) | (uint64_t(p[3]) << 32) |
                (uint64_t(p[4]) << 24) | (uint64_t(p[5]) << 16) |
                (uint64_t(p[6]) <<  8) |  uint64_t(p[7]);
+    }
+
+    inline void store_be16(uint8_t* p, uint16_t v) noexcept{
+        p[0] = static_cast<uint8_t>(v >> 8);
+        p[1] = static_cast<uint8_t>(v);
+    }
+
+    inline void store_be64(uint8_t* p, uint64_t v) noexcept{
+        p[0] = static_cast<uint8_t>(v >> 56);
+        p[1] = static_cast<uint8_t>(v >> 48);     
+        p[2] = static_cast<uint8_t>(v >> 40);
+        p[3] = static_cast<uint8_t>(v >> 32);
+        p[4] = static_cast<uint8_t>(v >> 24);
+        p[5] = static_cast<uint8_t>(v >> 16);
+        p[6] = static_cast<uint8_t>(v >> 8);
+        p[7] = static_cast<uint8_t>(v);
     }
 
     using Symbol = std::array<char, 8>; // 8-byte ascii ticker, space padded
