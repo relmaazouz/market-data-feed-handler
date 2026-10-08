@@ -52,6 +52,9 @@ int main() {
     uint8_t buf[2048];
     itch::OrderBook book;
     std::size_t count = 0;
+
+    uint64_t expected_seq = 1;
+    uint64_t gaps = 0; 
     
     while (true) {
         const ssize_t n = ::recvfrom(sock, buf, sizeof(buf), 0, nullptr, nullptr);
@@ -61,16 +64,29 @@ int main() {
             break;
             
         }
+
+        const uint64_t seq       = itch::load_be64(buf + 10);
+        const uint16_t msg_count = itch::load_be16(buf + 18);
+
+        if (seq > expected_seq) {                          // <-- ADD THIS: detect the gap
+            const uint64_t missing = seq - expected_seq;
+            gaps += missing;
+            std::printf("GAP at seq %llu: expected %llu, lost %llu\n",
+                        (unsigned long long)seq,
+                        (unsigned long long)expected_seq,
+                        (unsigned long long)missing);
+        }
         
-        const uint16_t len = itch::load_be16(buf);
-        itch::dispatch(book,buf + 2, len);
-        
-        //if (++count >= 10000) break;    // cap for the first test
-        ++count;
+        if (seq >= expected_seq) {
+            const uint16_t len = itch::load_be16(buf + 20);
+            itch::dispatch(book, buf + 22, len);
+            ++count;
+            expected_seq = seq + msg_count;        // <-- THIS: advance to next expected
+        }
     }
 
-    std::printf("received %zu messages | peak %zu  final orders %zu\n",
-                count, book.peak, book.orders.size());
+      std::printf("received %zu messages | gaps %llu | peak %zu  final orders %zu\n",
+              count, (unsigned long long)gaps, book.peak, book.orders.size());
     ::close(sock);
 
 
