@@ -59,6 +59,12 @@ if(ITCH_BUILD_APPS)
 
     add_executable(itch_bench apps/bench.cpp)
     target_link_libraries(itch_bench PRIVATE itch::itch itch_dev_flags)
+    
+    add_executable(itch_replay apps/replay.cpp)
+    target_link_libraries(itch_replay PRIVATE itch::itch itch_dev_flags)
+
+    add_executable(itch_recv apps/recv.cpp)
+    target_link_libraries(itch_recv PRIVATE itch::itch itch_dev_flags)
 endif()
 
 # ---------------------------------------------------------------------------
