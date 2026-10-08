@@ -12,12 +12,17 @@
 #include <arpa/inet.h>
 #include <itch/itch.hpp>
 
+#include <cstdlib>   // strtoull
+
 int main(int argc, char** argv) {
+
+    const uint64_t drop_every = (argc >= 3) ? std::strtoull(argv[2], nullptr, 10) : 0;
 
     if (argc < 2) {
         std::fprintf(stderr,
-                     "usage: %s <itch-file>\n"
-                     "  decompress first:  gunzip data/20190130.BX_ITCH_50.gz\n",
+                     "usage: %s <itch-file> [drop_every]\n"
+                     "  decompress first:  gunzip data/20190130.BX_ITCH_50.gz\n"
+                     "  drop_every N: drop every Nth packet to simulate loss (omit = send all)\n",
                      argv[0]);
         return 1;
     }
@@ -73,17 +78,18 @@ int main(int argc, char** argv) {
         itch::store_be16(packet + 18, 1);                    // [18..19] message count = 1
         std::memcpy(packet + 20, data + pos, 2 + len);       // [20..]   the [len][body] message, verbatim
 
-        const ssize_t sent = ::sendto(sock, packet, 20u + 2u + len, 0, reinterpret_cast<sockaddr*>(&group), sizeof(group));
-
-        if(sent < 0){
-            std::perror("sendto");
-            break;
+        // in the loop, wrap the send:
+        if (drop_every == 0 || (seq % drop_every) != 0) {
+            const ssize_t sent = ::sendto(sock, packet, 20u + 2u + len, 0,
+                                        reinterpret_cast<sockaddr*>(&group), sizeof(group));
+            if (sent < 0) { std::perror("sendto"); break; }
+            ++count;
         }
-
-        pos += 2+static_cast<std::size_t>(len);
-        ++count;
-        ++seq;   
-
+        // else: deliberately dropped — simulates a lost packet
+        pos += 2 + static_cast<std::size_t>(len);
+        
+        ++seq;      // increments on BOTH paths — the dropped seq leaves a real hole
+        
         if (count >= 5000000) break;   // 5M: builds a big real book, completes without stalling forever
 
     }
