@@ -2,7 +2,8 @@
 
 A C++20 library and toolset for parsing Nasdaq TotalView-ITCH 5.0 market-data
 feeds, reconstructing a live limit order book, and delivering that feed over
-UDP multicast with **MoldUDP64** framing and sequence-number gap detection.
+UDP multicast with **MoldUDP64** framing, sequence-number gap detection, and
+retransmission-based gap recovery.
 
 Built as a learning and portfolio project, working toward low-latency / HFT
 systems development. Every line is hand-written; the emphasis is correctness
@@ -85,15 +86,38 @@ book live from the socket:
   the order book live — the same `dispatch`/`OrderBook` code as the file path,
   now sourced from the network.
 - **Gap detection**: the receiver tracks the next expected sequence number and,
-  when a packet's sequence jumps ahead, computes exactly which messages were
-  lost (`missing = seq − expected`). Verified on real data by deliberately
-  dropping every Nth packet in the replayer (`drop_every` argument) and
-  confirming the receiver reports exactly those gaps.
+  when a packet's sequence jumps ahead, knows exactly which messages were lost.
 
 Because loopback applies backpressure (the sender blocks rather than dropping),
-packet loss is **injected deliberately** to exercise gap detection — the same
-way you'd test a real handler, rather than waiting for the network to drop a
-packet.
+packet loss is **injected deliberately** to exercise detection and recovery —
+the same way you'd test a real handler, rather than waiting for the network to
+drop a packet.
+
+## Gap recovery
+
+Detection is only half the job; the receiver also *heals* the book when
+packets are lost, reconstructing state bit-identical to a clean run.
+
+- **Detect:** the receiver tracks the next expected sequence number; a jump
+  means a hole.
+- **Request once:** on a new hole it unicasts a retransmission request to the
+  sender (first-missing sequence + count), and does *not* re-request while that
+  hole is open — avoiding a retransmission storm where a slightly-behind
+  receiver re-asks for a growing range on every packet.
+- **Buffer, don't advance:** packets that arrive *past* the hole are held in a
+  `std::map<seq, bytes>` reorder buffer instead of being applied out of order,
+  and `expected` stays parked on the hole.
+- **Drain in order:** when the missing messages arrive they are applied and the
+  buffer is drained in sequence until the next hole, or until the stream has
+  caught up.
+
+The sender is bidirectional: a second UDP socket receives requests, serviced by
+a non-blocking poll between sends plus a post-loop drain, so a gap at the very
+end of the stream still gets answered before the sender exits.
+
+**Verified:** replaying with `drop_every 1000` (≈5,000 injected losses), the
+receiver reports `buffered 0` and a final book **identical** to the clean,
+loss-free run — loss happened, and the book is exactly as if it hadn't.
 
 ## Correctness
 
@@ -137,19 +161,27 @@ The data is gitignored (each file is ~0.4–1.7 GB); fetch one with the helper:
 ./build/itch_feed  data/20190130.BX_ITCH_50
 
 # networked path — two terminals, receiver first:
-./build/itch_recv                                     # join multicast, build book, detect gaps
+./build/itch_recv                                     # join multicast, build book, recover gaps
 ./build/itch_replay data/20190130.BX_ITCH_50          # clean multicast stream
-./build/itch_replay data/20190130.BX_ITCH_50 1000     # drop every 1000th packet (tests gap detection)
+./build/itch_replay data/20190130.BX_ITCH_50 1000     # drop every 1000th packet (tests recovery)
 ```
+
+With `drop_every`, the receiver should still finish with `buffered 0` and the
+same final book as the clean run — proof the retransmit/reorder path heals the
+injected loss.
 
 `scripts/run.sh` wraps the benchmark and prints which allocator it used, making
 jemalloc an explicit, verified opt-in rather than a silent `LD_PRELOAD`.
 
 ## Roadmap
 
-- **Gap recovery** — on a detected gap, request retransmission of the missing
-  sequence range, buffer out-of-order packets, and apply them in order so the
-  book stays correct despite loss.
+- **End-of-Session marker** — loss of the *final* message is currently
+  undetectable (no successor packet reveals the gap); a real feed signals
+  end-of-session so trailing loss can be recovered.
+- **Re-request timer** — requests fire once; if a request or its retransmit is
+  itself lost, the hole never re-asks. Production handlers re-request on a timer.
+- **Request coalescing** — with many receivers, identical requests should be
+  deduplicated and the retransmit sent once to the group.
 - **Per-message latency histogram** (p50 / p99 / p99.9 / max) — HFT cares about
   the worst message, not the average.
 - **Full message coverage** — the imbalance / auction / admin message types
