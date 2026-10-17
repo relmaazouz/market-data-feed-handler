@@ -15,3 +15,9 @@ itch_feed
 itch_bench
 itch_test
 *.o
+/.idea/.gitignore
+/.idea/market-data-feed-handler.iml
+/.idea/misc.xml
+/.idea/modules.xml
+/.idea/vcs.xml
+/.idea/editor.xml

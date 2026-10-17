@@ -11,7 +11,6 @@
 #include <arpa/inet.h>
 #include <itch/itch.hpp>
 #include <vector>
-#include <cstring>
 
 #include <cstdlib>   // strtoull
 
@@ -125,6 +124,7 @@ int main(int argc, char** argv) {
     std::size_t pos = 0, count = 0;
     uint64_t seq = 1;                                   // 1-based sequence of the first message
     uint64_t retransmitted = 0;                           // count of retransmitted messages
+    const uint64_t CAP = 5000000;   // stop point: both clean and drop runs cover seq 1..CAP
 
     const char session[10] = {'B','X','0','0','0','0','0','0','0','0'};   // fixed placeholder for v1
 
@@ -138,7 +138,7 @@ int main(int argc, char** argv) {
         if (len ==0 || pos+2+len > size){break;}
 
         // in the loop, wrap the send:
-        if (drop_every == 0 || (seq % drop_every) != 0 || seq == 5000000) {
+        if (drop_every == 0 || (seq % drop_every) != 0 || seq == CAP) {
             if(!send_record(sock, group, session, seq, data + pos)){
                 break;
             }
@@ -151,7 +151,7 @@ int main(int argc, char** argv) {
         
         ++seq;      // increments on BOTH paths — the dropped seq leaves a real hole
         
-        if (seq > 5000000) break;   // 5M: builds a big real book, completes without stalling forever
+        if (seq > CAP) break;   // 5M: builds a big real book, completes without stalling forever
 
     }
 

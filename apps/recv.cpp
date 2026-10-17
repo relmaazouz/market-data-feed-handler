@@ -48,7 +48,6 @@ int main() {
     std::size_t count = 0;
 
     uint64_t expected_seq = 1;
-    uint64_t gaps = 0;
     uint64_t requested_seq = 0;
 
     std::map<uint64_t, std::vector<uint8_t>> buffer;   // store missing messages for retransmission
@@ -106,8 +105,8 @@ int main() {
         }
     }
 
-    std::printf("received %zu messages | gaps %llu | peak %zu  final orders %zu | buffered %zu\n",
-                count, (unsigned long long)gaps, book.peak, book.orders.size(), buffer.size());
+    std::printf("received %zu messages | peak %zu  final orders %zu | buffered %zu\n",
+                count, book.peak, book.orders.size(), buffer.size());
     ::close(sock);
     return 0;
 
