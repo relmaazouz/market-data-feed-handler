@@ -40,7 +40,7 @@ target_compile_features(itch INTERFACE cxx_std_20)
 # of the itch:: library target).
 # ---------------------------------------------------------------------------
 add_library(itch_dev_flags INTERFACE)
-target_compile_options(itch_dev_flags INTERFACE -Wall -Wextra -Wconversion)
+target_compile_options(itch_dev_flags INTERFACE -Wall -Wextra -Wconversion -Wshadow)
 
 if(ITCH_ENABLE_NATIVE_ARCH)
     include(CheckCXXCompilerFlag)

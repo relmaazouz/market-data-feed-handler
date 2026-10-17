@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstring>
 #include <cstdint>
 #include <cstddef>
 #include <cerrno>
@@ -7,6 +8,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <itch/itch.hpp>
+#include <vector>
+#include <map>
 
 int main() {
     int sock = ::socket(AF_INET, SOCK_DGRAM, 0);
@@ -46,6 +49,14 @@ int main() {
 
     uint64_t expected_seq = 1;
     uint64_t gaps = 0;
+    uint64_t requested_seq = 0;
+
+    std::map<uint64_t, std::vector<uint8_t>> buffer;   // store missing messages for retransmission
+    auto apply = [&](const uint8_t* msg, uint16_t len) {
+        itch::dispatch(book, msg, len);
+        ++count;
+        ++expected_seq;          // one message per packet in this version
+    };
 
     while (true) {
         const ssize_t n = ::recvfrom(sock, buf, sizeof(buf), 0, nullptr, nullptr);
@@ -56,27 +67,49 @@ int main() {
 
         // MoldUDP64 header: sequence at offset 10, message count at offset 18.
         const uint64_t seq       = itch::load_be64(buf + 10);
-        const uint16_t msg_count = itch::load_be16(buf + 18);
+        const uint16_t len = itch::load_be16(buf + 20);   // this packet's ITCH message length
 
-        if (seq > expected_seq) {                 // gap: sequence jumped — messages were lost
-            const uint64_t missing = seq - expected_seq;
-            gaps += missing;
-            std::printf("GAP at seq %llu: expected %llu, lost %llu\n",
-                        (unsigned long long)seq,
-                        (unsigned long long)expected_seq,
-                        (unsigned long long)missing);
-        }
+        if(seq < expected_seq){   // ignore out-of-order messages
+            continue;
+        }else if(seq == expected_seq){
+            apply(buf + 22, len);
+            //drain apply buffer messages that are now contiguous with the expected sequence
+            while(!buffer.empty() && buffer.begin()->first == expected_seq) {
+                auto msg = buffer.begin();
+                apply(msg->second.data(),static_cast<uint16_t>(msg->second.size()));
+                buffer.erase(buffer.begin());
+            }
+        } else {  
+                if (expected_seq != requested_seq) {                // gap: sequence jumped — messages were lost
+                uint8_t req[20];
+                std::memcpy(req, buf, 10);   // session ID at offset 0
 
-        if (seq >= expected_seq) {                // process in-order / first-seen packets, skip duplicates
-            const uint16_t len = itch::load_be16(buf + 20);   // message starts after the 20-byte header
-            itch::dispatch(book, buf + 22, len);
-            ++count;
-            expected_seq = seq + msg_count;       // advance to the next expected sequence
+                itch::store_be64(req + 10, expected_seq);     // first missing
+                itch::store_be16(req + 18, static_cast<uint16_t>(seq - expected_seq));   // count of missing
+                std::printf("GAP at seq %llu: expected %llu, lost %llu\n",
+                            (unsigned long long)seq,
+                            (unsigned long long)expected_seq,
+                            (unsigned long long)(seq - expected_seq));
+                
+                // send a retransmission request for the missing messages
+                sockaddr_in req_dest{};
+                req_dest.sin_family = AF_INET;
+                req_dest.sin_port   = htons(12346);
+                ::inet_pton(AF_INET, "127.0.0.1", &req_dest.sin_addr);   // sender's request port
+                if (::sendto(sock, req, sizeof(req), 0,
+                            reinterpret_cast<sockaddr*>(&req_dest), sizeof(req_dest)) < 0) {
+                    std::perror("sendto"); break;
+                }
+                requested_seq = expected_seq;   // don't request again until we get a response
+                }
+            buffer.emplace(seq, std::vector<uint8_t>(buf + 22, buf + 22 + len));
         }
     }
 
-    std::printf("received %zu messages | gaps %llu | peak %zu  final orders %zu\n",
-                count, (unsigned long long)gaps, book.peak, book.orders.size());
+    std::printf("received %zu messages | gaps %llu | peak %zu  final orders %zu | buffered %zu\n",
+                count, (unsigned long long)gaps, book.peak, book.orders.size(), buffer.size());
     ::close(sock);
     return 0;
+
+
 }
