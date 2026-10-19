@@ -65,6 +65,9 @@ if(ITCH_BUILD_APPS)
 
     add_executable(itch_recv apps/recv.cpp)
     target_link_libraries(itch_recv PRIVATE itch::itch itch_dev_flags)
+
+    add_executable(itch_topsym apps/topsym.cpp)
+    target_link_libraries(itch_topsym PRIVATE itch::itch itch_dev_flags)
 endif()
 
 # ---------------------------------------------------------------------------

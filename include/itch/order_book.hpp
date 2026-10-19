@@ -40,6 +40,13 @@ namespace itch {
             uint32_t price;
             uint64_t shares;   // aggregate shares resting at this price (can exceed 32 bits)
         };
+
+        struct TopLevel{
+            uint64_t price;
+            uint64_t size;
+        };
+
+
         struct Levels {
             std::vector<Level> bids;   // sorted descending by price: best bid = front()
             std::vector<Level> asks;   // sorted descending by price: best ask = back()
@@ -126,6 +133,20 @@ namespace itch {
             it->shares -= shares;
             if (it->shares == 0) m.erase(it);
         }
+
+        // returns size == 0 to mean "this side is empty"
+        TopLevel best_bid(uint16_t stock_locate) const {
+            const auto& bids = books[stock_locate].bids;
+            if(bids.empty()) return TopLevel{0,0};
+            return TopLevel{bids.front().price, bids.front().shares};
+        }
+
+        TopLevel best_ask(uint16_t stock_locate) const {
+            const auto& asks = books[stock_locate].asks;
+            if(asks.empty()) return TopLevel{0, 0};
+            return TopLevel{asks.back().price, asks.back().shares};
+        }
+
     };
 
 }  // namespace itch
