@@ -40,7 +40,7 @@ target_compile_features(itch INTERFACE cxx_std_20)
 # of the itch:: library target).
 # ---------------------------------------------------------------------------
 add_library(itch_dev_flags INTERFACE)
-target_compile_options(itch_dev_flags INTERFACE -Wall -Wextra -Wconversion -Wshadow)
+target_compile_options(itch_dev_flags INTERFACE -Wall -Wextra -Wconversion -Wshadow -Wunused-parameter)
 
 if(ITCH_ENABLE_NATIVE_ARCH)
     include(CheckCXXCompilerFlag)
@@ -68,6 +68,10 @@ if(ITCH_BUILD_APPS)
 
     add_executable(itch_topsym apps/topsym.cpp)
     target_link_libraries(itch_topsym PRIVATE itch::itch itch_dev_flags)
+
+    add_executable(itch_features apps/features.cpp)
+    target_link_libraries(itch_features PRIVATE itch::itch itch_dev_flags)
+
 endif()
 
 # ---------------------------------------------------------------------------
