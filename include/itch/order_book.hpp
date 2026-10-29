@@ -42,7 +42,7 @@ namespace itch {
         };
 
         struct TopLevel{
-            uint64_t price;
+            uint32_t price;
             uint64_t size;
         };
 
