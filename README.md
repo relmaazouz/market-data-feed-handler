@@ -10,6 +10,10 @@ systems development. Every line is hand-written; the emphasis is correctness
 first, measure-before-optimize throughout — including optimizations that were
 tried, measured, and *reverted* because the data said so.
 
+> See **[MICROSTRUCTURE.md](MICROSTRUCTURE.md)** for a short order-book-imbalance
+> research study built on top of this handler (signal IC, out-of-sample
+> stability, and an honest cost analysis).
+
 ---
 
 ## Library
@@ -32,6 +36,26 @@ Header-only, no linking required:
 3. Implement a handler (derive from `itch::NullHandler` and override the
    `on_*` callbacks you need, or use `itch::OrderBook` directly), then drive
    it with `itch::Parser<YourHandler>`.
+
+## Protocol coverage
+
+All 22 Nasdaq TotalView-ITCH 5.0 message types are decoded into typed structs —
+not just the book-relevant subset:
+
+- **System & admin** — system event, stock directory, trading action, Reg SHO,
+  market-participant position, MWCB (circuit-breaker) decline/status, IPO
+  quoting period, LULD auction collar, operational halt.
+- **Order** — add (with/without MPID), execute (with/without price), cancel,
+  delete, replace.
+- **Trade** — non-cross, cross, broken.
+- **Price discovery** — NOII (net order imbalance), RPII, direct-listing
+  capital raise.
+
+Each message decodes in a single `switch` in `dispatch`. The `OrderBook`
+handler reacts to the five book-mutating types and ignores the rest via
+`NullHandler`'s no-op defaults — so unused message types compile away to
+nothing. A different handler (say, an auction-imbalance consumer) subscribes to
+whichever `on_*` callbacks it needs.
 
 ## The order book — locality over cleverness
 
@@ -134,6 +158,13 @@ drives the handlers directly and asserts on book state — one test per class of
 bug the project has hit. The suite is verified to *fail* when a check is
 deliberately broken, so a green result means something.
 
+The suite also includes **round-trip parser tests**: a byte buffer is built
+with distinct known values at each field offset, run through `dispatch`, and
+every decoded field is asserted against what went in. Buffers are sized to the
+exact message length, so an over-read or over-write is caught as a crash rather
+than silently absorbed — which is how the suite caught a buffer overflow in a
+big-endian serializer on its first run.
+
 ## Build
 
 Requires a C++20 compiler and CMake ≥ 3.20.
@@ -184,8 +215,6 @@ jemalloc an explicit, verified opt-in rather than a silent `LD_PRELOAD`.
   deduplicated and the retransmit sent once to the group.
 - **Per-message latency histogram** (p50 / p99 / p99.9 / max) — HFT cares about
   the worst message, not the average.
-- **Full message coverage** — the imbalance / auction / admin message types
-  beyond the ~10 book-relevant ones decoded today.
 - **Multi-message MoldUDP packets** — batch several messages per datagram under
   one header, as the real protocol does.
 
