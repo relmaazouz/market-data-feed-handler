@@ -3,6 +3,7 @@
 #include "itch/order_book.hpp"
 #include <cstdint>
 
+
 static int g_checks = 0, g_failures = 0;
 
 #define CHECK(cond) do {                                        \
@@ -15,6 +16,16 @@ static int g_checks = 0, g_failures = 0;
 
 using itch::OrderBook;
 
+
+struct Recorder : itch::NullHandler {
+    itch::SystemEvent sysev{};  bool got_sysev=false;
+    itch::Noii        noii{};   bool got_noii=false;
+    // ... one pair per message type you test
+    bool got_other=false;
+    void on_system_event(const itch::SystemEvent& e){ sysev=e; got_sysev=true; }
+    void on_noii(const itch::Noii& n){ noii=n; got_noii=true; }
+    void on_other(char,const uint8_t*,uint16_t){ got_other=true; }
+};
 
 static uint64_t level_shares(OrderBook& b, uint16_t loc, char side, uint32_t price){
     const auto& v = (side=='B') ? b.books[loc].bids : b.books[loc].asks;
@@ -181,6 +192,56 @@ static void test_symbol_lookup() {
     CHECK(b.symbol_by_locate.at(7) == "AAPL");     // trim_symbol stripped the padding
 }
 
+void test_system_event() {
+    uint8_t m[12] = {};
+    m[0] = 'S';
+    itch::store_be16(m + 1, 7);           // stock_locate
+    itch::store_be16(m + 3, 42);          // tracking_number
+    itch::store_be48(m + 5, 123456789);   // timestamp
+    m[11] = 'O';                          // event_code
+
+    Recorder r;
+    itch::dispatch(r, m, sizeof(m));
+
+    CHECK(r.got_sysev);                  // was it dispatched at all?
+    CHECK(!r.got_other);                 // did NOT fall through to on_other
+    CHECK(r.sysev.stock_locate == 7);
+    CHECK(r.sysev.tracking_number == 42);
+    CHECK(r.sysev.timestamp == 123456789);
+    CHECK(r.sysev.event_code == 'O');
+}
+
+void test_noii() {
+    uint8_t m[50] = {};
+    m[0] = 'I';
+    itch::store_be16(m + 1, 9);
+    itch::store_be16(m + 3, 10);
+    itch::store_be48(m + 5, 777);
+    itch::store_be64(m + 11, 1000);        // paired_shares
+    itch::store_be64(m + 19, 2000);        // imbalance_shares
+    m[27] = 'B';                           // imbalance_direction (before stock!)
+    std::memcpy(m + 28, "AAPL    ", 8);    // stock
+    itch::store_be32(m + 36, 111);         // far_price
+    itch::store_be32(m + 40, 222);         // near_price
+    itch::store_be32(m + 44, 333);         // current_reference_price
+    m[48] = 'O';                           // cross_type
+    m[49] = 'L';                           // price_variation_indicator
+
+    Recorder r;
+    itch::dispatch(r, m, sizeof(m));
+
+    CHECK(r.got_noii && !r.got_other);
+    CHECK(r.noii.paired_shares == 1000);
+    CHECK(r.noii.imbalance_shares == 2000);
+    CHECK(r.noii.imbalance_direction == 'B');
+    CHECK(itch::trim_symbol(r.noii.stock) == "AAPL");
+    CHECK(r.noii.far_price == 111);
+    CHECK(r.noii.near_price == 222);       // if far/near were swapped in dispatch, THIS fails
+    CHECK(r.noii.current_reference_price == 333);
+    CHECK(r.noii.cross_type == 'O');
+    CHECK(r.noii.price_variation_indicator == 'L');
+}
+
 int main() {
     test_add();
     test_cancel();
@@ -192,7 +253,9 @@ int main() {
     test_full_execution();
     test_execute_with_price();
     test_symbol_lookup();
-    
+    test_system_event();
+    test_noii();
+
     if(g_failures==0){
         printf("All tests passed!\n");
     }
