@@ -1,18 +1,30 @@
 # market-data-feed-handler
 
-A C++20 library and toolset for parsing Nasdaq TotalView-ITCH 5.0 market-data
-feeds, reconstructing a live limit order book, and delivering that feed over
-UDP multicast with **MoldUDP64** framing, sequence-number gap detection, and
-retransmission-based gap recovery.
+[![CI](https://github.com/relmaazouz/market-data-feed-handler/actions/workflows/ci.yml/badge.svg)](https://github.com/relmaazouz/market-data-feed-handler/actions/workflows/ci.yml)
+![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+
+A from-scratch C++20 Nasdaq TotalView-ITCH 5.0 feed handler, limit order book,
+and MoldUDP64 network layer with retransmission-based gap recovery.
+
+**Highlights**
+
+- **Full ITCH 5.0** — all 22 message types decoded into typed structs, each
+  with per-message round-trip tests.
+- **Cache-optimized order book** — book cost more than halved
+  (16.9 → 7.9 book ÷ parser) by replacing node-chasing containers with flat,
+  contiguous ones; rejected optimizations (jemalloc, a PMR object pool) were
+  measured and documented, not assumed.
+- **Gap recovery** — detect → request-once → reorder-buffer → drain, verified
+  to rebuild a lossy feed **bit-identical** to the clean, loss-free run.
+- **Microstructure study** — order-book imbalance predicts the next mid-price
+  move (information coefficient ≈ 0.25, stable out-of-sample, sub-half-spread);
+  see **[MICROSTRUCTURE.md](MICROSTRUCTURE.md)**.
 
 Built as a learning and portfolio project, working toward low-latency / HFT
 systems development. Every line is hand-written; the emphasis is correctness
 first, measure-before-optimize throughout — including optimizations that were
 tried, measured, and *reverted* because the data said so.
-
-> See **[MICROSTRUCTURE.md](MICROSTRUCTURE.md)** for a short order-book-imbalance
-> research study built on top of this handler (signal IC, out-of-sample
-> stability, and an honest cost analysis).
 
 ---
 
@@ -222,8 +234,9 @@ jemalloc an explicit, verified opt-in rather than a silent `LD_PRELOAD`.
 
 ```
 include/itch/       parser.hpp, order_book.hpp, itch.hpp  (header-only library)
-apps/               feed.cpp, bench.cpp, replay.cpp, recv.cpp
+apps/               feed.cpp, bench.cpp, replay.cpp, recv.cpp, topsym.cpp, features.cpp
 tests/              test_order_book.cpp
+analysis/           microstructure study (Python)
 third_party/ankerl/ unordered_dense.h (vendored, pinned)
 scripts/            run.sh, download.sh
 CMakeLists.txt
