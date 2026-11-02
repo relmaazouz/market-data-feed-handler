@@ -20,6 +20,8 @@ and MoldUDP64 network layer with retransmission-based gap recovery.
 - **Microstructure study** — order-book imbalance predicts the next mid-price
   move (information coefficient ≈ 0.25, stable out-of-sample, sub-half-spread);
   see **[MICROSTRUCTURE.md](MICROSTRUCTURE.md)**.
+- **Python bindings** — feature extraction exposed to Python/NumPy zero-copy via
+  pybind11, so the research layer calls straight into the C++ book.
 
 Built as a learning and portfolio project, working toward low-latency / HFT
 systems development. Every line is hand-written; the emphasis is correctness
@@ -177,6 +179,34 @@ exact message length, so an over-read or over-write is caught as a crash rather
 than silently absorbed — which is how the suite caught a buffer overflow in a
 big-endian serializer on its first run.
 
+## Python bindings
+
+The feature-extraction path is exposed to Python via **pybind11**, so a research
+layer can call straight into the C++ order book — no CSV round-trip. The module
+is off by default; enable it at configure time:
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DITCH_BUILD_PYTHON=ON
+cmake --build build
+```
+
+Then, from Python:
+
+```python
+import itch_py, pandas as pd   # (or polars — the binding returns plain NumPy columns)
+cols = itch_py.extract_features("data/20190130.BX_ITCH_50", "SMH")
+df = pd.DataFrame(cols)         # columns: ts, bid_px, bid_sz, ask_px, ask_sz
+```
+
+`extract_features` replays the whole file in C++, reconstructs the book, and
+returns the per-event top-of-book as columnar NumPy arrays. The C++
+`std::vector`s are handed to NumPy **zero-copy** — moved to the heap and owned
+by a capsule that frees them on garbage collection — so hundreds of thousands
+of rows cross into Python without being copied. It's the fast-core /
+Python-research split used in production quant stacks: the research layer and
+the CLI `itch_features` call the *same* `itch::extract_features`, so there is
+one feature-extraction code path, not two.
+
 ## Build
 
 Requires a C++20 compiler and CMake ≥ 3.20.
@@ -233,9 +263,10 @@ jemalloc an explicit, verified opt-in rather than a silent `LD_PRELOAD`.
 ## Layout
 
 ```
-include/itch/       parser.hpp, order_book.hpp, itch.hpp  (header-only library)
+include/itch/       parser.hpp, order_book.hpp, itch.hpp, features.h  (header-only library)
 apps/               feed.cpp, bench.cpp, replay.cpp, recv.cpp, topsym.cpp, features.cpp
 tests/              test_order_book.cpp
+python/             itch_py.cpp  (pybind11 module, build with -DITCH_BUILD_PYTHON=ON)
 analysis/           microstructure study (Python)
 third_party/ankerl/ unordered_dense.h (vendored, pinned)
 scripts/            run.sh, download.sh
