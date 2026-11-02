@@ -6,6 +6,7 @@ data/*.NASDAQ_ITCH50
 
 # Build artifacts
 build/
+cmake-build-*/        # CLion's build dirs (Release/Debug)
 output/
 CMakeCache.txt
 CMakeFiles/
@@ -15,6 +16,7 @@ itch_feed
 itch_bench
 itch_test
 *.o
+*.so                  # built Python extension module
 /.idea/.gitignore
 /.idea/market-data-feed-handler.iml
 /.idea/misc.xml
@@ -22,3 +24,10 @@ itch_test
 /.idea/vcs.xml
 /.idea/editor.xml
 /.idea/ctestState.xml
+
+# Generated feature data (produced by itch_features / the Python binding)
+*.csv
+
+# Python
+.venv/
+__pycache__/
