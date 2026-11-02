@@ -13,13 +13,16 @@ option(ITCH_BUILD_APPS "Build the itch_feed / itch_bench demo binaries" ON)
 option(ITCH_BUILD_TESTS "Build and register the unit test binary" ON)
 option(ITCH_ENABLE_NATIVE_ARCH "Compile this repo's own targets with -march=native (not portable across machines)" ON)
 option(ITCH_INSTALL "Add install rules so this library can be installed/find_package'd" OFF)
+option(ITCH_BUILD_PYTHON "Build the pybind11 Python module" OFF)
 
 # ---------------------------------------------------------------------------
 # itch: header-only library (include/itch/{parser,order_book,itch}.hpp).
 # Both headers are template-driven (compile-time Handler dispatch, no vtable)
 # so there is nothing to compile into this library itself.
 # ---------------------------------------------------------------------------
-add_library(itch INTERFACE)
+add_library(itch INTERFACE
+        python/itch_py.cpp
+        include/itch/features.h)
 add_library(itch::itch ALIAS itch)
 
 target_include_directories(itch INTERFACE
@@ -83,6 +86,22 @@ if(ITCH_BUILD_TESTS)
     target_link_libraries(itch_test PRIVATE itch::itch itch_dev_flags)
     add_test(NAME itch_test COMMAND itch_test)
 endif()
+
+if(ITCH_BUILD_PYTHON)
+    include(FetchContent)
+    FetchContent_Declare(
+            pybind11
+            GIT_REPOSITORY https://github.com/pybind/pybind11.git
+            GIT_TAG v2.13.6
+    )
+
+    FetchContent_MakeAvailable(pybind11)
+
+    pybind11_add_module(itch_py python/itch_py.cpp)
+    target_link_libraries(itch_py PRIVATE itch::itch)
+endif ()
+
+
 
 # ---------------------------------------------------------------------------
 # Optional install rules, for consuming this repo via find_package(itch).
